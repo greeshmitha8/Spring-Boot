@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            margin-right: 10px;
+        }
+        .button {
+            padding: 10px 15px;
+            margin-top: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Task Management</h1>
+
+    <!-- Form to Create or Update a Task -->
+    <div class="form-group">
+        <label for="taskTitle">Task Title:</label>
+        <input type="text" id="taskTitle" placeholder="Enter task title" required>
+    </div>
+    <div class="form-group">
+        <label for="taskDescription">Task Description:</label>
+        <textarea id="taskDescription" placeholder="Enter task description"></textarea>
+    </div>
+    <div class="form-group">
+        <label for="taskDueDate">Due Date:</label>
+        <input type="datetime-local" id="taskDueDate">
+    </div>
+    <div class="form-group">
+        <label for="taskStatus">Status:</label>
+        <select id="taskStatus">
+            <option value="PENDING">Pending</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="COMPLETED">Completed</option>
+        </select>
+    </div>
+    <button class="button" id="createTaskBtn">Create Task</button>
+
+    <!-- Task List -->
+    <h2>Task List</h2>
+    <table id="taskTable">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Description</th>
+                <th>Due Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        // URL of the Spring Boot API
+        const apiUrl = 'http://localhost:8080/api/tasks';
+
+        // Fetch and display tasks
+        function fetchTasks() {
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(tasks => {
+                    const tableBody = document.querySelector('#taskTable tbody');
+                    tableBody.innerHTML = '';
+                    tasks.forEach(task => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${task.title}</td>
+                            <td>${task.description || ''}</td>
+                            <td>${task.dueDate || ''}</td>
+                            <td>${task.status}</td>
+                            <td>
+                                <button class="button" onclick="editTask(${task.id})">Edit</button>
+                                <button class="button" onclick="deleteTask(${task.id})">Delete</button>
+                            </td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => console.error('Error fetching tasks:', error));
+        }
+
+        // Create a new task
+        document.getElementById('createTaskBtn').addEventListener('click', () => {
+            const taskTitle = document.getElementById('taskTitle').value;
+            const taskDescription = document.getElementById('taskDescription').value;
+            const taskDueDate = document.getElementById('taskDueDate').value;
+            const taskStatus = document.getElementById('taskStatus').value;
+
+            const task = {
+                title: taskTitle,
+                description: taskDescription,
+                dueDate: taskDueDate ? new Date(taskDueDate).toISOString() : null,
+                status: taskStatus
+            };
+
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(task)
+            })
+            .then(response => response.json())
+            .then(() => {
+                fetchTasks();
+                clearForm();
+            })
+            .catch(error => console.error('Error creating task:', error));
+        });
+
+        // Edit a task (pre-populate form for editing)
+        function editTask(id) {
+            fetch(`${apiUrl}/${id}`)
+                .then(response => response.json())
+                .then(task => {
+                    document.getElementById('taskTitle').value = task.title;
+                    document.getElementById('taskDescription').value = task.description;
+                    document.getElementById('taskDueDate').value = task.dueDate ? task.dueDate.slice(0, 16) : '';
+                    document.getElementById('taskStatus').value = task.status;
+                    document.getElementById('createTaskBtn').textContent = 'Update Task';
+                    document.getElementById('createTaskBtn').onclick = () => updateTask(id);
+                })
+                .catch(error => console.error('Error fetching task:', error));
+        }
+
+        // Update a task
+        function updateTask(id) {
+            const taskTitle = document.getElementById('taskTitle').value;
+            const taskDescription = document.getElementById('taskDescription').value;
+            const taskDueDate = document.getElementById('taskDueDate').value;
+            const taskStatus = document.getElementById('taskStatus').value;
+
+            const task = {
+                title: taskTitle,
+                description: taskDescription,
+                dueDate: taskDueDate ? new Date(taskDueDate).toISOString() : null,
+                status: taskStatus
+            };
+
+            fetch(`${apiUrl}/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(task)
+            })
+            .then(response => response.json())
+            .then(() => {
+                fetchTasks();
+                clearForm();
+                document.getElementById('createTaskBtn').textContent = 'Create Task';
+                document.getElementById('createTaskBtn').onclick = createTask;
+            })
+            .catch(error => console.error('Error updating task:', error));
+        }
+
+        // Delete a task
+        function deleteTask(id) {
+            fetch(`${apiUrl}/${id}`, {
+                method: 'DELETE'
+            })
+            .then(() => fetchTasks())
+            .catch(error => console.error('Error deleting task:', error));
+        }
+
+        // Clear the form
+        function clearForm() {
+            document.getElementById('taskTitle').value = '';
+            document.getElementById('taskDescription').value = '';
+            document.getElementById('taskDueDate').value = '';
+            document.getElementById('taskStatus').value = 'PENDING';
+        }
+
+        // Initialize the page with tasks
+        fetchTasks();
+    </script>
+</body>
+</html>
